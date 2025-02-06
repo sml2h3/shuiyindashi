@@ -311,17 +311,17 @@ export default {
       previewImage: null,
       originalImage: null,
       glassSettings: {
-        blur: 5,
+        blur: 16,
         opacity: 50
       },
       imageSettings: {
         quality: 100,
         scale: 80,
-        x: 50,    // 水平居中
-        y: 45,    // 偏上位置
-        borderRadius: 8,  // 默认圆角
-        shadowSize: 20,   // 默认阴影大小
-        shadowOpacity: 30 // 默认阴影透明度
+        x: 50,
+        y: 45,
+        borderRadius: 20,
+        shadowSize: 30,
+        shadowOpacity: 60
       },
       photoInfo: {
         brand: '',
@@ -363,15 +363,15 @@ export default {
       }
     },
     foregroundStyle() {
-      const shadowOpacity = this.imageSettings.shadowOpacity / 100;
+      const shadowOpacity = this.imageSettings.shadowOpacity / 100
+      
       return {
         width: this.imageSettings.scale + '%',
         height: this.imageSettings.scale + '%',
-        left: 'calc(' + this.imageSettings.x + '% - ' + (this.imageSettings.scale / 2) + '%)',
-        top: 'calc(' + this.imageSettings.y + '% - ' + (this.imageSettings.scale / 2) + '%)',
+        left: this.imageSettings.x + '%',
+        top: this.imageSettings.y + '%',
         borderRadius: this.imageSettings.borderRadius + 'px',
-        boxShadow: '0 ' + (this.imageSettings.shadowSize / 2) + 'px ' + 
-                   this.imageSettings.shadowSize + 'px rgba(0, 0, 0, ' + shadowOpacity + ')'
+        boxShadow: `0 ${this.imageSettings.shadowSize / 2}px ${this.imageSettings.shadowSize}px rgba(0, 0, 0, ${shadowOpacity})`
       }
     },
     hasPhotoInfo() {
@@ -572,30 +572,41 @@ export default {
         const x = (canvas.width * this.imageSettings.x / 100) - (width / 2)
         const y = (canvas.height * this.imageSettings.y / 100) - (height / 2)
         
-        // 创建圆角蒙版
-        const scaledRadius = Math.round(this.imageSettings.borderRadius * scaleRatio)
-        if (scaledRadius > 0) {
-          ctx.save()
-          this.roundRect(ctx, x, y, width, height, scaledRadius)
-          ctx.clip()
-        }
+        // 创建临时canvas用于绘制带圆角和阴影的前景图
+        const tempCanvas2 = document.createElement('canvas')
+        const tempCtx2 = tempCanvas2.getContext('2d')
         
-        ctx.drawImage(bgImage, x, y, width, height)
-        
-        if (scaledRadius > 0) {
-          ctx.restore()
-        }
-        
-        // 添加阴影
+        // 计算缩放后的阴影和圆角大小
         const scaledShadowSize = Math.round(this.imageSettings.shadowSize * scaleRatio)
-        if (scaledShadowSize > 0) {
-          ctx.save()
-          ctx.shadowColor = 'rgba(0, 0, 0, ' + (this.imageSettings.shadowOpacity / 100) + ')'
-          ctx.shadowBlur = scaledShadowSize
-          ctx.shadowOffsetY = scaledShadowSize / 2
-          this.roundRect(ctx, x, y, width, height, scaledRadius)
-          ctx.restore()
-        }
+        const scaledRadius = Math.round(this.imageSettings.borderRadius * scaleRatio)
+        const padding = scaledShadowSize * 3  // 增加阴影空间
+        
+        tempCanvas2.width = width + padding
+        tempCanvas2.height = height + padding
+        
+        // 设置阴影
+        tempCtx2.shadowColor = `rgba(0, 0, 0, ${this.imageSettings.shadowOpacity / 100})`
+        tempCtx2.shadowBlur = scaledShadowSize * 1.5  // 增加阴影模糊度
+        tempCtx2.shadowOffsetY = scaledShadowSize / 3  // 减小阴影偏移
+        
+        // 在临时canvas上绘制圆角矩形路径
+        tempCtx2.beginPath()
+        this.roundRect(tempCtx2, padding/2, padding/2, width, height, scaledRadius)
+        
+        // 先填充一个白色的圆角矩形（为了显示阴影）
+        tempCtx2.fillStyle = '#ffffff'
+        tempCtx2.fill()
+        
+        // 创建裁剪路径
+        tempCtx2.save()
+        tempCtx2.clip()
+        
+        // 在裁剪区域内绘制图片
+        tempCtx2.drawImage(bgImage, padding/2, padding/2, width, height)
+        tempCtx2.restore()
+        
+        // 将临时canvas的内容绘制到主canvas上
+        ctx.drawImage(tempCanvas2, x - padding/2, y - padding/2)
         
         // 添加文字
         this.composing.progress = 90
@@ -763,6 +774,8 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .image-container {
@@ -774,17 +787,16 @@ export default {
     
     .image-wrapper {
       position: relative;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
+      max-width: 100%;
+      max-height: 100%;
+      display: inline-block;
       
       .background-image {
-        position: absolute;
-        width: 100%;
-        height: 100%;
+        display: block;
+        max-width: 100%;
+        max-height: calc(100vh - 140px);
+        width: auto;
+        height: auto;
         object-fit: contain;
       }
       
@@ -792,25 +804,23 @@ export default {
         position: absolute;
         top: 0;
         left: 0;
-        width: 100%;
-        height: 100%;
+        right: 0;
+        bottom: 0;
         pointer-events: none;
-        border-radius: 8px;
-        backdrop-filter: saturate(180%);
       }
 
       .foreground-container {
         position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         z-index: 2;
         overflow: hidden;
+        transform: translate(-50%, -50%);
         
         .foreground-image {
-          max-width: 100%;
-          max-height: 100%;
+          display: block;
+          width: 100%;
+          height: 100%;
           object-fit: contain;
+          border-radius: inherit;
         }
       }
     }
