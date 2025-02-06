@@ -72,7 +72,7 @@
                 <el-slider 
                   v-model="glassSettings.blur" 
                   :min="0" 
-                  :max="20" 
+                  :max="this.getAdaptiveValue(20, 16, 12)" 
                   :step="0.5"
                   :format-tooltip="value => value + 'px'"
                 ></el-slider>
@@ -128,7 +128,7 @@
                 <el-slider 
                   v-model="imageSettings.borderRadius" 
                   :min="0" 
-                  :max="30"
+                  :max="this.getAdaptiveValue(30, 24, 18)"
                   :format-tooltip="value => value + 'px'"
                 ></el-slider>
                 <span class="value-display">{{ imageSettings.borderRadius }}px</span>
@@ -139,7 +139,7 @@
                 <el-slider 
                   v-model="imageSettings.shadowSize" 
                   :min="0" 
-                  :max="50"
+                  :max="this.getAdaptiveValue(50, 40, 30)"
                   :format-tooltip="value => value + 'px'"
                 ></el-slider>
                 <span class="value-display">{{ imageSettings.shadowSize }}px</span>
@@ -276,6 +276,30 @@
                 <span class="value-display">{{ textSettings.settings.opacity }}%</span>
               </div>
             </el-form-item>
+
+            <el-form-item label="相机信息字体大小">
+              <div class="slider-with-value">
+                <el-slider 
+                  v-model="textSettings.camera.fontSize" 
+                  :min="this.getAdaptiveValue(12, 10, 8)" 
+                  :max="this.getAdaptiveValue(36, 28, 20)"
+                  :format-tooltip="value => value + 'px'"
+                ></el-slider>
+                <span class="value-display">{{ textSettings.camera.fontSize }}px</span>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="参数信息字体大小">
+              <div class="slider-with-value">
+                <el-slider 
+                  v-model="textSettings.settings.fontSize" 
+                  :min="this.getAdaptiveValue(10, 8, 6)" 
+                  :max="this.getAdaptiveValue(24, 18, 14)"
+                  :format-tooltip="value => value + 'px'"
+                ></el-slider>
+                <span class="value-display">{{ textSettings.settings.fontSize }}px</span>
+              </div>
+            </el-form-item>
           </el-form>
         </div>
       </div>
@@ -311,7 +335,7 @@ export default {
       previewImage: null,
       originalImage: null,
       glassSettings: {
-        blur: 16,
+        blur: this.getAdaptiveValue(16, 12, 8),
         opacity: 50
       },
       imageSettings: {
@@ -319,30 +343,32 @@ export default {
         scale: 80,
         x: 50,
         y: 45,
-        borderRadius: 20,
-        shadowSize: 30,
+        borderRadius: this.getAdaptiveValue(20, 16, 12),
+        shadowSize: this.getAdaptiveValue(30, 20, 15),
         shadowOpacity: 60
       },
       photoInfo: {
-        brand: '',
-        model: '',
-        focalLength: '',
-        aperture: '',
-        shutterSpeed: '',
-        iso: ''
+        brand: 'Nikon',
+        model: 'Z9',
+        focalLength: '500',
+        aperture: '5.6',
+        shutterSpeed: '200',
+        iso: '2000'
       },
       textSettings: {
         camera: {
           color: '#FFFFFF',
-          opacity: 100
+          opacity: 100,
+          fontSize: this.getAdaptiveValue(28, 20, 16)
         },
         settings: {
           color: '#FFFFFF',
-          opacity: 100
+          opacity: 100,
+          fontSize: this.getAdaptiveValue(18, 14, 12)
         },
         position: {
-          x: 50,  // 水平居中
-          y: 90   // 距底部10%
+          x: 50,
+          y: 90
         }
       },
       composing: {
@@ -410,13 +436,15 @@ export default {
     cameraStyle() {
       return {
         color: this.textSettings.camera.color,
-        opacity: this.textSettings.camera.opacity / 100
+        opacity: this.textSettings.camera.opacity / 100,
+        fontSize: this.textSettings.camera.fontSize + 'px'
       }
     },
     settingsStyle() {
       return {
         color: this.textSettings.settings.color,
-        opacity: this.textSettings.settings.opacity / 100
+        opacity: this.textSettings.settings.opacity / 100,
+        fontSize: this.textSettings.settings.fontSize + 'px'
       }
     },
     textPositionStyle() {
@@ -514,23 +542,21 @@ export default {
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         
+        // 获取预览图的实际显示尺寸
+        const previewImg = this.$el.querySelector('.background-image')
+        if (!previewImg) {
+          throw new Error('无法获取预览图尺寸')
+        }
+        
         // 加载背景图
         this.composing.progress = 10
         this.composing.text = '加载背景图...'
         const bgImage = await this.loadImage(this.previewImage)
         canvas.width = bgImage.width
         canvas.height = bgImage.height
-
-        // 获取预览区域的尺寸
-        const previewArea = this.$el.querySelector('.preview-area')
-        const previewWidth = previewArea.clientWidth - 40  // 减去padding
-        const previewHeight = previewArea.clientHeight - 40
         
-        // 计算缩放比例
-        const scaleRatio = Math.max(
-          canvas.width / previewWidth,
-          canvas.height / previewHeight
-        )
+        // 计算预览图和最终渲染图的尺寸比例（用于所有缩放计算）
+        const scaleRatio = canvas.width / previewImg.offsetWidth
         
         // 绘制背景图
         this.composing.progress = 30
@@ -572,22 +598,21 @@ export default {
         const x = (canvas.width * this.imageSettings.x / 100) - (width / 2)
         const y = (canvas.height * this.imageSettings.y / 100) - (height / 2)
         
-        // 创建临时canvas用于绘制带圆角和阴影的前景图
-        const tempCanvas2 = document.createElement('canvas')
-        const tempCtx2 = tempCanvas2.getContext('2d')
-        
         // 计算缩放后的阴影和圆角大小
         const scaledShadowSize = Math.round(this.imageSettings.shadowSize * scaleRatio)
         const scaledRadius = Math.round(this.imageSettings.borderRadius * scaleRatio)
-        const padding = scaledShadowSize * 3  // 增加阴影空间
+        const padding = scaledShadowSize * 3
         
+        // 创建临时canvas用于绘制带圆角和阴影的前景图
+        const tempCanvas2 = document.createElement('canvas')
+        const tempCtx2 = tempCanvas2.getContext('2d')
         tempCanvas2.width = width + padding
         tempCanvas2.height = height + padding
         
         // 设置阴影
         tempCtx2.shadowColor = `rgba(0, 0, 0, ${this.imageSettings.shadowOpacity / 100})`
-        tempCtx2.shadowBlur = scaledShadowSize * 1.5  // 增加阴影模糊度
-        tempCtx2.shadowOffsetY = scaledShadowSize / 3  // 减小阴影偏移
+        tempCtx2.shadowBlur = scaledShadowSize * 1.5
+        tempCtx2.shadowOffsetY = scaledShadowSize / 3
         
         // 在临时canvas上绘制圆角矩形路径
         tempCtx2.beginPath()
@@ -601,8 +626,29 @@ export default {
         tempCtx2.save()
         tempCtx2.clip()
         
-        // 在裁剪区域内绘制图片
-        tempCtx2.drawImage(bgImage, padding/2, padding/2, width, height)
+        // 创建一个新的前景图
+        const fgImage = await this.loadImage(this.previewImage)
+        
+        // 在裁剪区域内绘制前景图（保持比例）
+        const fgRatio = fgImage.width / fgImage.height
+        let drawWidth = width
+        let drawHeight = height
+        let offsetX = padding/2
+        let offsetY = padding/2
+        
+        if (fgRatio > width/height) {
+          // 图片较宽，以高度为准
+          drawHeight = height
+          drawWidth = height * fgRatio
+          offsetX = padding/2 + (width - drawWidth) / 2
+        } else {
+          // 图片较高，以宽度为准
+          drawWidth = width
+          drawHeight = width / fgRatio
+          offsetY = padding/2 + (height - drawHeight) / 2
+        }
+        
+        tempCtx2.drawImage(fgImage, offsetX, offsetY, drawWidth, drawHeight)
         tempCtx2.restore()
         
         // 将临时canvas的内容绘制到主canvas上
@@ -612,73 +658,108 @@ export default {
         this.composing.progress = 90
         this.composing.text = '添加文字...'
         
-        // 计算文字基准位置
+        // 获取预览图中文字的实际显示尺寸和位置
+        const previewTextContainer = this.$el.querySelector('.photo-info')
+        const previewCameraText = this.$el.querySelector('.camera-info')
+        const previewSettingsText = this.$el.querySelector('.settings-info')
+        
+        if (!previewTextContainer || (!previewCameraText && !previewSettingsText)) {
+          throw new Error('无法获取预览文字信息')
+        }
+        
+        // 计算文字基准位置（基于预览图中的实际位置）
         const baseX = canvas.width * this.textSettings.position.x / 100
         const baseY = canvas.height * this.textSettings.position.y / 100
         
-        // 计算两行文字的垂直间距
-        const cameraFontSize = Math.round(28 * scaleRatio)
-        const settingsFontSize = Math.round(18 * scaleRatio)
+        // 获取预览中的实际样式
+        const cameraStyles = previewCameraText ? window.getComputedStyle(previewCameraText) : null
+        const settingsStyles = previewSettingsText ? window.getComputedStyle(previewSettingsText) : null
         
-        // 调整行距计算，考虑字体大小和额外间距
-        const lineSpacing = Math.round((cameraFontSize + settingsFontSize) * 1.2)
-        
-        if (this.formattedCamera) {
-          ctx.save()
-          const textShadowSize = Math.round(4 * scaleRatio)
+        // 计算实际渲染尺寸
+        const scaledCameraFontSize = cameraStyles ? 
+          parseFloat(cameraStyles.fontSize) * scaleRatio : 
+          this.textSettings.camera.fontSize * scaleRatio
           
-          // 设置字体样式
-          ctx.font = 'italic 200 ' + cameraFontSize + 'px "Helvetica Neue", Arial, sans-serif'
+        const scaledSettingsFontSize = settingsStyles ? 
+          parseFloat(settingsStyles.fontSize) * scaleRatio : 
+          this.textSettings.settings.fontSize * scaleRatio
+        
+        // 计算行间距（基于预览中的实际间距）
+        const lineSpacing = previewCameraText && previewSettingsText ? 
+          (previewSettingsText.offsetTop - previewCameraText.offsetTop) * scaleRatio :
+          Math.round(Math.max(scaledCameraFontSize, scaledSettingsFontSize) * 1.2)
+        
+        if (this.formattedCamera && cameraStyles) {
+          ctx.save()
+          
+          // 安全地获取阴影值
+          const shadowValues = this.parseShadowValues(cameraStyles.textShadow)
+          const textShadowSize = shadowValues.blur * scaleRatio
+          
+          // 设置字体样式（完全匹配预览样式）
+          const fontWeight = cameraStyles.fontWeight || '200'
+          const fontStyle = cameraStyles.fontStyle || 'italic'
+          const fontFamily = cameraStyles.fontFamily || '"Helvetica Neue", Arial, sans-serif'
+          
+          ctx.font = `${fontStyle} ${fontWeight} ${scaledCameraFontSize}px ${fontFamily}`
           ctx.fillStyle = this.textSettings.camera.color
           ctx.globalAlpha = this.textSettings.camera.opacity / 100
           ctx.textAlign = 'center'
-          ctx.textBaseline = 'bottom'  // 使用bottom基线
+          ctx.textBaseline = 'middle'
           
-          // 文字阴影
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
-          ctx.shadowBlur = textShadowSize * 2
-          ctx.shadowOffsetY = textShadowSize / 2
+          // 文字阴影（使用安全获取的值）
+          ctx.shadowColor = shadowValues.color
+          ctx.shadowBlur = textShadowSize
+          ctx.shadowOffsetY = shadowValues.offsetY * scaleRatio
           
-          // 字母间距和位置
-          const letterSpacing = Math.round(2 * scaleRatio)
-          const text = this.formattedCamera.split('').join('\u200B'.repeat(letterSpacing))
+          // 字母间距（使用预览中的实际值，如果获取失败则使用默认值）
+          const letterSpacing = Math.max(
+            parseFloat(cameraStyles.letterSpacing || '0') * scaleRatio,
+            scaledCameraFontSize * 0.07
+          )
+          const text = this.formattedCamera.split('').join('\u200B'.repeat(Math.round(letterSpacing)))
           
-          // 计算第一行位置，考虑是否有第二行
-          const yOffset = this.formattedSettings ? lineSpacing / 2 : 0
+          // 应用垂直拉伸效果（从预览样式中获取，如果获取失败则使用默认值）
+          const scaleY = 1.02
           
-          // 应用垂直拉伸效果
           ctx.save()
-          ctx.scale(1, 1.02)
-          ctx.fillText(text, baseX, baseY - yOffset + cameraFontSize / 2)
+          ctx.scale(1, scaleY)
+          ctx.fillText(text, baseX, baseY - (this.formattedSettings ? lineSpacing/2 : 0))
           ctx.restore()
           
           ctx.restore()
         }
         
-        if (this.formattedSettings) {
+        if (this.formattedSettings && settingsStyles) {
           ctx.save()
-          const textShadowSize = Math.round(4 * scaleRatio)
           
-          // 设置字体样式
-          ctx.font = '300 ' + settingsFontSize + 'px "Helvetica Neue", Arial, sans-serif'
+          // 安全地获取阴影值
+          const shadowValues = this.parseShadowValues(settingsStyles.textShadow)
+          const textShadowSize = shadowValues.blur * scaleRatio
+          
+          // 设置字体样式（完全匹配预览样式）
+          const fontWeight = settingsStyles.fontWeight || '300'
+          const fontFamily = settingsStyles.fontFamily || '"Helvetica Neue", Arial, sans-serif'
+          
+          ctx.font = `${fontWeight} ${scaledSettingsFontSize}px ${fontFamily}`
           ctx.fillStyle = this.textSettings.settings.color
           ctx.globalAlpha = this.textSettings.settings.opacity / 100
           ctx.textAlign = 'center'
-          ctx.textBaseline = 'top'  // 使用top基线
+          ctx.textBaseline = 'middle'
           
-          // 文字阴影
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
-          ctx.shadowBlur = textShadowSize * 2
-          ctx.shadowOffsetY = textShadowSize / 2
+          // 文字阴影（使用安全获取的值）
+          ctx.shadowColor = shadowValues.color
+          ctx.shadowBlur = textShadowSize
+          ctx.shadowOffsetY = shadowValues.offsetY * scaleRatio
           
-          // 字母间距和位置
-          const letterSpacing = Math.round(1.5 * scaleRatio)
-          const text = this.formattedSettings.split('').join('\u200B'.repeat(letterSpacing))
+          // 字母间距（使用预览中的实际值，如果获取失败则使用默认值）
+          const letterSpacing = Math.max(
+            parseFloat(settingsStyles.letterSpacing || '0') * scaleRatio,
+            scaledSettingsFontSize * 0.06
+          )
+          const text = this.formattedSettings.split('').join('\u200B'.repeat(Math.round(letterSpacing)))
           
-          // 计算第二行位置，考虑是否有第一行
-          const yOffset = this.formattedCamera ? lineSpacing / 2 : 0
-          
-          ctx.fillText(text, baseX, baseY + yOffset - settingsFontSize / 2)
+          ctx.fillText(text, baseX, baseY + (this.formattedCamera ? lineSpacing/2 : 0))
           ctx.restore()
         }
         
@@ -705,7 +786,7 @@ export default {
       } catch (error) {
         console.error('合成失败:', error)
         this.composing.status = 'exception'
-        this.composing.text = '合成失败'
+        this.composing.text = '合成失败: ' + error.message
         this.composing.canClose = true
       }
     },
@@ -731,12 +812,64 @@ export default {
       ctx.lineTo(x, y + radius)
       ctx.quadraticCurveTo(x, y, x + radius, y)
       ctx.closePath()
+    },
+    getAdaptiveValue(pcValue, tabletValue, mobileValue) {
+      const width = window.innerWidth
+      if (width <= 480) {
+        return mobileValue
+      } else if (width <= 768) {
+        return tabletValue
+      }
+      return pcValue
+    },
+    updateAdaptiveValues() {
+      this.glassSettings.blur = this.getAdaptiveValue(16, 12, 8)
+      this.imageSettings.borderRadius = this.getAdaptiveValue(20, 16, 12)
+      this.imageSettings.shadowSize = this.getAdaptiveValue(30, 20, 15)
+      this.textSettings.camera.fontSize = this.getAdaptiveValue(28, 20, 16)
+      this.textSettings.settings.fontSize = this.getAdaptiveValue(18, 14, 12)
+    },
+    parseShadowValues(shadowStyle) {
+      try {
+        if (!shadowStyle || shadowStyle === 'none') {
+          return {
+            color: 'rgba(0, 0, 0, 0.5)',
+            offsetX: 0,
+            offsetY: 2,
+            blur: 4
+          }
+        }
+        
+        const colorMatch = shadowStyle.match(/rgba?\([^)]+\)/g)
+        const numberMatch = shadowStyle.match(/(-?\d+(\.\d+)?px)/g)
+        
+        return {
+          color: colorMatch ? colorMatch[0] : 'rgba(0, 0, 0, 0.5)',
+          offsetX: numberMatch ? parseFloat(numberMatch[0]) : 0,
+          offsetY: numberMatch ? parseFloat(numberMatch[1]) : 2,
+          blur: numberMatch ? parseFloat(numberMatch[2]) : 4
+        }
+      } catch (error) {
+        console.warn('解析阴影样式失败:', error)
+        return {
+          color: 'rgba(0, 0, 0, 0.5)',
+          offsetX: 0,
+          offsetY: 2,
+          blur: 4
+        }
+      }
     }
+  },
+  mounted() {
+    window.addEventListener('resize', this.updateAdaptiveValues)
+    this.updateAdaptiveValues()
+  },
+  beforeDestroy() {
+    window.removeEventListener('resize', this.updateAdaptiveValues)
   },
   watch: {
     'imageSettings.quality': {
-      // eslint-disable-next-line no-unused-vars
-      handler(newValue) {
+      handler() {
         if (this.originalImage) {
           const reader = new FileReader()
           reader.onload = async (e) => {
@@ -755,15 +888,35 @@ export default {
   padding: 20px;
   height: 100vh;
   background-color: var(--primary-black);
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  
+  @media (max-width: 768px) {
+    padding: 10px;
+    height: auto;
+    min-height: 100vh;
+  }
 
   .header {
     margin-bottom: 20px;
+    width: 100%;
   }
 
   .editor-container {
     display: flex;
     gap: 20px;
     height: calc(100vh - 80px);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+      height: auto;
+      gap: 10px;
+    }
   }
 
   .preview-area {
@@ -776,6 +929,14 @@ export default {
     justify-content: center;
     min-height: 0;
     overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+    
+    @media (max-width: 768px) {
+      padding: 10px;
+      min-height: 50vh;
+      width: 100%;
+    }
   }
 
   .image-container {
@@ -787,9 +948,11 @@ export default {
     
     .image-wrapper {
       position: relative;
+      display: inline-block;
       max-width: 100%;
       max-height: 100%;
-      display: inline-block;
+      width: auto;
+      height: auto;
       
       .background-image {
         display: block;
@@ -798,6 +961,10 @@ export default {
         width: auto;
         height: auto;
         object-fit: contain;
+        
+        @media (max-width: 768px) {
+          max-height: calc(50vh - 40px);
+        }
       }
       
       .glass-effect {
@@ -849,6 +1016,13 @@ export default {
     display: flex;
     flex-direction: column;
     height: 100%;
+    box-sizing: border-box;
+    
+    @media (max-width: 768px) {
+      width: 100%;
+      height: auto;
+      padding: 15px;
+    }
 
     h3 {
       color: var(--text-white);
@@ -859,7 +1033,10 @@ export default {
     .settings-form {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding-right: 10px;
+      width: 100%;
+      box-sizing: border-box;
       
       &::-webkit-scrollbar {
         width: 6px;
@@ -964,6 +1141,17 @@ export default {
       letter-spacing: 2px;
       font-style: italic;
       transform: scale(1, 1.02);
+      
+      @media (max-width: 768px) {
+        font-size: 20px;
+        letter-spacing: 1.5px;
+        margin-bottom: 4px;
+      }
+      
+      @media (max-width: 480px) {
+        font-size: 16px;
+        letter-spacing: 1.2px;
+      }
     }
     
     &.settings-info {
@@ -972,6 +1160,18 @@ export default {
       letter-spacing: 1.5px;
       margin-top: 12px;
       font-family: 'Helvetica Neue', Arial, sans-serif;
+      
+      @media (max-width: 768px) {
+        font-size: 14px;
+        letter-spacing: 1px;
+        margin-top: 6px;
+      }
+      
+      @media (max-width: 480px) {
+        font-size: 12px;
+        letter-spacing: 0.8px;
+        margin-top: 4px;
+      }
     }
   }
 }
@@ -995,6 +1195,22 @@ export default {
     margin-top: 15px;
     color: var(--text-gray);
     font-size: 14px;
+  }
+}
+
+// 确保对话框不会超出视口
+.el-dialog {
+  @media (max-width: 768px) {
+    width: 90% !important;
+    margin: 0 auto !important;
+  }
+}
+
+// 确保颜色选择器在移动端不会溢出
+.el-color-picker__panel {
+  @media (max-width: 768px) {
+    left: 50% !important;
+    transform: translateX(-50%);
   }
 }
 </style> 
