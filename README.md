@@ -57,25 +57,25 @@
 ### 安装步骤
 
 1. 克隆项目
-\`\`\`bash
+```bash
 git clone https://github.com/yourusername/watermark-master.git
-\`\`\`
+```
 
 2. 安装依赖
-\`\`\`bash
+```bash
 cd watermark-master
 npm install
-\`\`\`
+```
 
 3. 启动开发服务器
-\`\`\`bash
+```bash
 npm run dev
-\`\`\`
+```
 
 4. 构建生产版本
-\`\`\`bash
+```bash
 npm run build
-\`\`\`
+```
 
 ## 使用指南
 
