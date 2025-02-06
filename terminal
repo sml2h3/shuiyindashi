@@ -1,0 +1,3 @@
+vue create watermark-master
+cd watermark-master
+npm install element-ui fabric 
