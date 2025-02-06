@@ -41,9 +41,32 @@
         </div>
       </div>
       <div class="settings-panel">
-        <h3>模板设置</h3>
+        <div class="panel-header">
+          <h3>模板设置</h3>
+          <el-button 
+            type="primary" 
+            size="small" 
+            :disabled="!previewImage"
+            @click="startCompose">
+            合成图片
+          </el-button>
+        </div>
         <div class="settings-form">
           <el-form label-position="top">
+            <el-form-item label="画质">
+              <div class="slider-with-value">
+                <el-slider 
+                  v-model="imageSettings.quality" 
+                  :min="1" 
+                  :max="100"
+                  :format-tooltip="value => value + '%'"
+                ></el-slider>
+                <span class="value-display">{{ imageSettings.quality }}%</span>
+              </div>
+            </el-form-item>
+
+            <div class="section-divider">基础设置</div>
+            
             <el-form-item label="模糊度">
               <div class="slider-with-value">
                 <el-slider 
@@ -257,6 +280,24 @@
         </div>
       </div>
     </div>
+
+    <!-- 合成进度模态框 -->
+    <el-dialog
+      title="图片合成中"
+      :visible.sync="composing.visible"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="composing.canClose"
+      width="400px"
+      center>
+      <div class="compose-progress">
+        <el-progress 
+          :percentage="composing.progress" 
+          :status="composing.status">
+        </el-progress>
+        <div class="progress-text">{{ composing.text }}</div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -268,11 +309,13 @@ export default {
   data() {
     return {
       previewImage: null,
+      originalImage: null,
       glassSettings: {
         blur: 5,
         opacity: 50
       },
       imageSettings: {
+        quality: 100,
         scale: 80,
         x: 50,    // 水平居中
         y: 45,    // 偏上位置
@@ -301,6 +344,13 @@ export default {
           x: 50,  // 水平居中
           y: 90   // 距底部10%
         }
+      },
+      composing: {
+        visible: false,
+        progress: 0,
+        status: '',
+        text: '',
+        canClose: false
       }
     }
   },
@@ -379,12 +429,38 @@ export default {
   },
   methods: {
     async handleImageChange(file) {
+      this.originalImage = file.raw
+      
       const reader = new FileReader()
       reader.onload = async (e) => {
-        this.previewImage = e.target.result
+        await this.processImage(e.target.result)
         await this.extractExifData(file.raw)
       }
       reader.readAsDataURL(file.raw)
+    },
+    async processImage(imageData) {
+      if (this.imageSettings.quality === 100) {
+        this.previewImage = imageData
+        return
+      }
+      
+      const img = new Image()
+      img.src = imageData
+      
+      await new Promise((resolve) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          
+          canvas.width = img.width
+          canvas.height = img.height
+          
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          
+          this.previewImage = canvas.toDataURL('image/jpeg', this.imageSettings.quality / 100)
+          resolve()
+        }
+      })
     },
     async extractExifData(imageFile) {
       try {
@@ -425,6 +501,239 @@ export default {
     },
     goBack() {
       this.$router.push({ name: 'template-select' })
+    },
+    async startCompose() {
+      this.composing.visible = true
+      this.composing.progress = 0
+      this.composing.status = ''
+      this.composing.text = '准备合成...'
+      this.composing.canClose = false
+      
+      try {
+        // 创建画布
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        
+        // 加载背景图
+        this.composing.progress = 10
+        this.composing.text = '加载背景图...'
+        const bgImage = await this.loadImage(this.previewImage)
+        canvas.width = bgImage.width
+        canvas.height = bgImage.height
+
+        // 获取预览区域的尺寸
+        const previewArea = this.$el.querySelector('.preview-area')
+        const previewWidth = previewArea.clientWidth - 40  // 减去padding
+        const previewHeight = previewArea.clientHeight - 40
+        
+        // 计算缩放比例
+        const scaleRatio = Math.max(
+          canvas.width / previewWidth,
+          canvas.height / previewHeight
+        )
+        
+        // 绘制背景图
+        this.composing.progress = 30
+        this.composing.text = '绘制背景...'
+        ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height)
+        
+        // 应用毛玻璃效果
+        this.composing.progress = 50
+        this.composing.text = '应用特效...'
+        
+        // 创建临时canvas用于毛玻璃效果
+        const tempCanvas = document.createElement('canvas')
+        const tempCtx = tempCanvas.getContext('2d')
+        tempCanvas.width = canvas.width
+        tempCanvas.height = canvas.height
+        
+        // 在临时canvas上绘制背景
+        tempCtx.drawImage(bgImage, 0, 0, canvas.width, canvas.height)
+        
+        // 应用模糊效果
+        const scaledBlur = Math.round(this.glassSettings.blur * scaleRatio)
+        tempCtx.filter = 'blur(' + scaledBlur + 'px)'
+        tempCtx.drawImage(tempCanvas, 0, 0)
+        
+        // 绘制半透明白色遮罩
+        tempCtx.filter = 'none'
+        tempCtx.fillStyle = 'rgba(255, 255, 255, ' + (this.glassSettings.opacity / 400) + ')'
+        tempCtx.fillRect(0, 0, canvas.width, canvas.height)
+        
+        // 将毛玻璃效果绘制到主canvas
+        ctx.drawImage(tempCanvas, 0, 0)
+        
+        // 绘制前景图
+        this.composing.progress = 70
+        this.composing.text = '绘制前景...'
+        const scale = this.imageSettings.scale / 100
+        const width = canvas.width * scale
+        const height = canvas.height * scale
+        const x = (canvas.width * this.imageSettings.x / 100) - (width / 2)
+        const y = (canvas.height * this.imageSettings.y / 100) - (height / 2)
+        
+        // 创建圆角蒙版
+        const scaledRadius = Math.round(this.imageSettings.borderRadius * scaleRatio)
+        if (scaledRadius > 0) {
+          ctx.save()
+          this.roundRect(ctx, x, y, width, height, scaledRadius)
+          ctx.clip()
+        }
+        
+        ctx.drawImage(bgImage, x, y, width, height)
+        
+        if (scaledRadius > 0) {
+          ctx.restore()
+        }
+        
+        // 添加阴影
+        const scaledShadowSize = Math.round(this.imageSettings.shadowSize * scaleRatio)
+        if (scaledShadowSize > 0) {
+          ctx.save()
+          ctx.shadowColor = 'rgba(0, 0, 0, ' + (this.imageSettings.shadowOpacity / 100) + ')'
+          ctx.shadowBlur = scaledShadowSize
+          ctx.shadowOffsetY = scaledShadowSize / 2
+          this.roundRect(ctx, x, y, width, height, scaledRadius)
+          ctx.restore()
+        }
+        
+        // 添加文字
+        this.composing.progress = 90
+        this.composing.text = '添加文字...'
+        
+        // 计算文字基准位置
+        const baseX = canvas.width * this.textSettings.position.x / 100
+        const baseY = canvas.height * this.textSettings.position.y / 100
+        
+        // 计算两行文字的垂直间距
+        const cameraFontSize = Math.round(28 * scaleRatio)
+        const settingsFontSize = Math.round(18 * scaleRatio)
+        
+        // 调整行距计算，考虑字体大小和额外间距
+        const lineSpacing = Math.round((cameraFontSize + settingsFontSize) * 1.2)
+        
+        if (this.formattedCamera) {
+          ctx.save()
+          const textShadowSize = Math.round(4 * scaleRatio)
+          
+          // 设置字体样式
+          ctx.font = 'italic 200 ' + cameraFontSize + 'px "Helvetica Neue", Arial, sans-serif'
+          ctx.fillStyle = this.textSettings.camera.color
+          ctx.globalAlpha = this.textSettings.camera.opacity / 100
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'bottom'  // 使用bottom基线
+          
+          // 文字阴影
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+          ctx.shadowBlur = textShadowSize * 2
+          ctx.shadowOffsetY = textShadowSize / 2
+          
+          // 字母间距和位置
+          const letterSpacing = Math.round(2 * scaleRatio)
+          const text = this.formattedCamera.split('').join('\u200B'.repeat(letterSpacing))
+          
+          // 计算第一行位置，考虑是否有第二行
+          const yOffset = this.formattedSettings ? lineSpacing / 2 : 0
+          
+          // 应用垂直拉伸效果
+          ctx.save()
+          ctx.scale(1, 1.02)
+          ctx.fillText(text, baseX, baseY - yOffset + cameraFontSize / 2)
+          ctx.restore()
+          
+          ctx.restore()
+        }
+        
+        if (this.formattedSettings) {
+          ctx.save()
+          const textShadowSize = Math.round(4 * scaleRatio)
+          
+          // 设置字体样式
+          ctx.font = '300 ' + settingsFontSize + 'px "Helvetica Neue", Arial, sans-serif'
+          ctx.fillStyle = this.textSettings.settings.color
+          ctx.globalAlpha = this.textSettings.settings.opacity / 100
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'top'  // 使用top基线
+          
+          // 文字阴影
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+          ctx.shadowBlur = textShadowSize * 2
+          ctx.shadowOffsetY = textShadowSize / 2
+          
+          // 字母间距和位置
+          const letterSpacing = Math.round(1.5 * scaleRatio)
+          const text = this.formattedSettings.split('').join('\u200B'.repeat(letterSpacing))
+          
+          // 计算第二行位置，考虑是否有第一行
+          const yOffset = this.formattedCamera ? lineSpacing / 2 : 0
+          
+          ctx.fillText(text, baseX, baseY + yOffset - settingsFontSize / 2)
+          ctx.restore()
+        }
+        
+        // 导出图片
+        this.composing.progress = 95
+        this.composing.text = '导出图片...'
+        const quality = this.imageSettings.quality / 100
+        
+        // 创建临时链接并触发下载
+        const dataUrl = canvas.toDataURL('image/jpeg', quality)
+        const link = document.createElement('a')
+        link.download = 'watermark.jpg'
+        link.href = dataUrl
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        // 更新状态
+        this.composing.progress = 100
+        this.composing.status = 'success'
+        this.composing.text = '合成完成'
+        this.composing.canClose = true
+        
+      } catch (error) {
+        console.error('合成失败:', error)
+        this.composing.status = 'exception'
+        this.composing.text = '合成失败'
+        this.composing.canClose = true
+      }
+    },
+    
+    loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = src
+      })
+    },
+    
+    roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath()
+      ctx.moveTo(x + radius, y)
+      ctx.lineTo(x + width - radius, y)
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
+      ctx.lineTo(x + width, y + height - radius)
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+      ctx.lineTo(x + radius, y + height)
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
+      ctx.lineTo(x, y + radius)
+      ctx.quadraticCurveTo(x, y, x + radius, y)
+      ctx.closePath()
+    }
+  },
+  watch: {
+    'imageSettings.quality': {
+      // eslint-disable-next-line no-unused-vars
+      handler(newValue) {
+        if (this.originalImage) {
+          const reader = new FileReader()
+          reader.onload = async (e) => {
+            await this.processImage(e.target.result)
+          }
+          reader.readAsDataURL(this.originalImage)
+        }
+      }
     }
   }
 }
@@ -609,6 +918,10 @@ export default {
   border-bottom: 1px solid var(--border-color);
 }
 
+.section-divider:first-of-type {
+  margin-top: 10px;
+}
+
 .input-with-unit {
   display: flex;
   align-items: center;
@@ -650,6 +963,28 @@ export default {
       margin-top: 12px;
       font-family: 'Helvetica Neue', Arial, sans-serif;
     }
+  }
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  
+  h3 {
+    margin: 0;
+  }
+}
+
+.compose-progress {
+  padding: 20px;
+  text-align: center;
+  
+  .progress-text {
+    margin-top: 15px;
+    color: var(--text-gray);
+    font-size: 14px;
   }
 }
 </style> 
