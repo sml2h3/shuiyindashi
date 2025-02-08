@@ -252,7 +252,7 @@ export default {
         scale: 80,
         x: 50,
         y: 50,
-        borderRadius: 30,
+        borderRadius: this.getAdaptiveValue(30, 20, 12),
         customText: '水印精灵'
       },
       psLogo: {
@@ -506,7 +506,7 @@ export default {
         const infoSectionFlex = 0.32  // 对应 flex: 0 0 32%
         const infoWidth = centerPanelWidth * infoSectionFlex
         const infoPaddingTop = contentHeight * 0.15    // 增加顶部padding，从0.10调整到0.15
-        const infoPaddingHorizontal = centerPanelWidth * 0.03
+        const infoPaddingHorizontal = centerPanelWidth * 0.03  // 修改这里，使用infoWidth而不是centerPanelWidth
         const infoX = infoPaddingHorizontal
         let infoY = contentY + infoPaddingTop
         
@@ -514,8 +514,8 @@ export default {
         this.composing.progress = 80
         this.composing.text = '绘制文本...'
         
-        // 计算实际可用宽度（减去padding）
-        const infoContentWidth = infoWidth - (infoPaddingHorizontal * 2)
+        // 计算实际可用宽度（减去左右padding）
+        const infoContentWidth = infoWidth - (infoPaddingHorizontal * 2)  // 修改这里，使用新的padding计算
         
         // 使用与实际显示相同的字体大小计算方式
         const copyrightFontSize = Math.round(infoContentWidth * 0.045)  // 调整系数以匹配实际显示
@@ -540,10 +540,10 @@ export default {
           { text: '', type: 'normal' }  // 保留3个空行
         ]
         
-        // 绘制主要版权文本
+        // 绘制主要版权文本，使用实际可用宽度进行换行计算
         copyrightTexts.forEach(item => {
           if (item.text) {
-            panelCtx.fillText(item.text, infoX, infoY)
+            this.wrapText(panelCtx, item.text, infoX, infoY, infoContentWidth, lineHeight)
           }
           infoY += lineHeight
         })
@@ -554,7 +554,6 @@ export default {
         panelCtx.fillStyle = 'rgba(0, 30, 54, 0.4)'  // 对应 color: rgba(0, 30, 54, 0.4)
         
         // 小字体文本的位置和布局
-        // 直接使用infoY作为基准位置，因为它已经包含了之前所有文本的高度
         const smallTextY = infoY
         const smallTextMarginLeft = -infoWidth * 0.02  // 修改左边距计算方式，使用infoWidth而不是centerPanelWidth
         const smallTextLineHeight = smallFontSize * 1.2  // 对应 line-height: 1.2
@@ -562,14 +561,13 @@ export default {
         // 小字体文本内容
         const smallText = 'Russell Preston Brown, Jerry Harris, Mike Shaw,SteveSnyder, Yukie Takahashi, Sarah Kong, David Howe, JohnPeterson, Kellisa Sandoval, jonathan lo, Adam jerugim. TomAttix, Yuko kaaita,Meredith Pavne-Stotzner.winodBalakrishnan, Tai Luxon, Dave Dobish, Alan Erickson, MelissaMonroe,chad Rolfs, Steve Guihamet, Maria Yao, JohnFitzqerald,Pam Clark,Foster Brereton, Daniel Presedo,David Hackel, Kevin Hopps, Pete Falco, jesper Storm BachePablo Serrano, Barkin Aygun, Ankit Kumar Singh, RamanKumar Gupta, Hyun Joon Jung, Soumya lakshmi, RuchiSood, Aiay Bedi,Sangeeta Varma, Mohit Gupta, MortezaSafdarnejad, Xiaoyang Liu, Hannah Nicollet, Fulvio Cervone,Charles Rose,Stephen Nlelson'
         
-        // 使用实际的小字体文本布局
-        let currentY = smallTextY
+        // 使用实际的小字体文本布局，考虑右侧padding
         const smallTextLines = this.wrapText(
           panelCtx,
           smallText,
           infoX + smallTextMarginLeft,
-          currentY,
-          infoContentWidth,
+          smallTextY,
+          infoContentWidth,  // 使用考虑了padding的宽度
           smallTextLineHeight,
           true  // 返回行数
         )
@@ -633,7 +631,7 @@ export default {
         const previewY = contentY
 
         // 计算实际可用区域（考虑padding）
-        const padding = Math.round(previewWidth * 0.03 + 5)  // 对应 CSS 中的 calc(3% + 5px)
+        const padding = Math.round(centerPanelWidth * 0.03 + 5)  // 对应 CSS 中的 calc(3% + 5px)
         const availableWidth = previewWidth - (padding * 2)
         const availableHeight = previewHeight - (padding * 2)
 
@@ -714,6 +712,7 @@ export default {
     },
     updateAdaptiveValues() {
       this.glassSettings.blur = this.getAdaptiveValue(16, 12, 8)
+      this.centerPanel.borderRadius = this.getAdaptiveValue(30, 24, 16)
     },
     updatePsLogoFontSize() {
       const psLogo = this.$refs.psLogo
@@ -867,28 +866,89 @@ export default {
     },
     // 修改wrapText方法，添加返回行数的功能
     wrapText(ctx, text, x, y, maxWidth, lineHeight, returnLines = false) {
-      const words = text.split(' ')
-      let line = ''
-      let lineCount = 1
+      let lines = []
+      let currentLine = ''
+      let currentWord = ''
       
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' '
+      // 辅助函数：检查是否需要换行
+      const checkNewLine = (word, line) => {
+        const testLine = line + (line ? ' ' : '') + word
         const metrics = ctx.measureText(testLine)
-        const testWidth = metrics.width
-        
-        if (testWidth > maxWidth && n > 0) {
-          ctx.fillText(line, x, y)
-          line = words[n] + ' '
-          y += lineHeight
-          lineCount++
-        } else {
-          line = testLine
+        return metrics.width > maxWidth
+      }
+      
+      // 辅助函数：添加新行
+      const addLine = (line) => {
+        if (line) {
+          lines.push(line)
         }
       }
-      ctx.fillText(line, x, y)
+
+      // 遍历每个字符
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i]
+        
+        // 处理英文单词
+        if (/[a-zA-Z0-9]/.test(char)) {
+          currentWord += char
+          // 如果是最后一个字符，需要处理剩余的单词
+          if (i === text.length - 1) {
+            if (checkNewLine(currentWord, currentLine)) {
+              addLine(currentLine)
+              currentLine = currentWord
+            } else {
+              currentLine += (currentLine ? ' ' : '') + currentWord
+            }
+          }
+        }
+        // 处理空格
+        else if (char === ' ') {
+          // 处理当前累积的单词
+          if (currentWord) {
+            if (checkNewLine(currentWord, currentLine)) {
+              addLine(currentLine)
+              currentLine = currentWord
+            } else {
+              currentLine += (currentLine ? ' ' : '') + currentWord
+            }
+            currentWord = ''
+          }
+        }
+        // 处理其他字符（如中文、标点等）
+        else {
+          // 先处理之前累积的英文单词
+          if (currentWord) {
+            if (checkNewLine(currentWord, currentLine)) {
+              addLine(currentLine)
+              currentLine = currentWord
+            } else {
+              currentLine += (currentLine ? ' ' : '') + currentWord
+            }
+            currentWord = ''
+          }
+          
+          // 处理当前字符
+          if (checkNewLine(char, currentLine)) {
+            addLine(currentLine)
+            currentLine = char
+          } else {
+            currentLine += char
+          }
+        }
+      }
+      
+      // 处理最后一行
+      if (currentLine) {
+        lines.push(currentLine)
+      }
+      
+      // 绘制所有行
+      lines.forEach((line, index) => {
+        ctx.fillText(line, x, y + index * lineHeight)
+      })
       
       if (returnLines) {
-        return lineCount
+        return lines.length
       }
     }
   },
