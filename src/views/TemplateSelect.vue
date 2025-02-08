@@ -35,6 +35,7 @@
 <script>
 // 导入预览图
 import transparentPreview from '@/assets/template-previews/transparent.jpg'
+import photoshopPreview from '@/assets/template-previews/photoshop.jpg'
 
 export default {
   name: 'TemplateSelect',
@@ -47,6 +48,13 @@ export default {
           preview: transparentPreview,  // 使用在线占位图
           type: 'transparent',
           description: '创建磨砂玻璃效果的背景，并在图片下方优雅地展示拍摄信息'
+        },
+        {
+          id: 2,
+          name: 'Photoshop 模板',
+          preview: photoshopPreview,
+          type: 'photoshop',
+          description: '模仿 Photoshop 启动界面风格，展示作者信息和拍摄参数'
         }
       ]
     }
