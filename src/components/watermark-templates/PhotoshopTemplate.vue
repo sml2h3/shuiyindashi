@@ -36,7 +36,13 @@
                     
                     <!-- 右侧图片展示区 -->
                     <div class="preview-section">
-                      图片展示区 (60%)
+                      <div class="preview-image-container">
+                        <img 
+                          v-if="previewImage"
+                          :src="previewImage" 
+                          class="preview-image"
+                          alt="预览图片">
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -677,6 +683,8 @@ export default {
             width: 100%;
             display: flex;
             flex-direction: row;
+            height: 85%; // 确保高度固定
+            min-height: 0; // 允许子元素收缩
             
             // 左侧文字信息区
             .info-section {
@@ -695,11 +703,42 @@ export default {
               flex: 0 0 60%;
               height: 100%;
               border: 1px dashed #666;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              color: #666;
-              font-size: 14px;
+              overflow: hidden;
+              min-height: 0; // 允许内容收缩
+              padding: calc(3% + 5px); // 基础padding 5px + 3%的动态padding
+              box-sizing: border-box;
+              
+              @media (max-width: 1440px) {
+                padding: calc(2.5% + 5px);
+              }
+              
+              @media (max-width: 1024px) {
+                padding: calc(2% + 4px);
+              }
+              
+              @media (max-width: 768px) {
+                padding: calc(1.5% + 3px);
+              }
+              
+              @media (max-width: 480px) {
+                padding: calc(1% + 2px);
+              }
+              
+              .preview-image-container {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                min-height: 0; // 允许内容收缩
+                
+                .preview-image {
+                  width: 100%;
+                  height: 100%;
+                  object-fit: contain;
+                  object-position: top;
+                }
+              }
             }
           }
         }
