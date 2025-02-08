@@ -31,7 +31,10 @@
                   <div class="content-area">
                     <!-- 左侧文字信息区 -->
                     <div class="info-section">
-                      文字信息区 (40%)
+                      <div class="copyright-text" :style="copyrightTextStyle">
+                        <span class="copyright-icon">©</span>
+                        1990-2025 Adobe, All rights reserved.
+                      </div>
                     </div>
                     
                     <!-- 右侧图片展示区 -->
@@ -170,6 +173,9 @@ export default {
       },
       textLogo: {
         fontSize: 0
+      },
+      copyrightText: {
+        fontSize: 0
       }
     }
   },
@@ -204,6 +210,11 @@ export default {
       return {
         fontSize: `${this.textLogo.fontSize}px`,
         fontWeight: 700
+      }
+    },
+    copyrightTextStyle() {
+      return {
+        fontSize: `${this.copyrightText.fontSize}px`
       }
     }
   },
@@ -453,6 +464,38 @@ export default {
       this.$nextTick(() => {
         this.updatePsLogoFontSize()
       })
+    },
+    updateCopyrightTextSize() {
+      const infoSection = this.$el.querySelector('.info-section')
+      if (!infoSection) {
+        requestAnimationFrame(() => {
+          this.updateCopyrightTextSize()
+        })
+        return
+      }
+      
+      const sectionWidth = infoSection.offsetWidth
+      // 检查宽度是否为0或异常值
+      if (sectionWidth === 0 || sectionWidth < 10) {
+        console.log('Info Section 宽度异常:', sectionWidth, 'px, 等待重试...')
+        setTimeout(() => {
+          this.updateCopyrightTextSize()
+        }, 100)
+        return
+      }
+      
+      // 计算字体大小
+      const fontSize = Math.round(sectionWidth * 0.04)
+      // 检查计算结果是否异常
+      if (fontSize === 0 || fontSize < 1) {
+        console.log('计算的字体大小异常:', fontSize, 'px, 等待重试...')
+        setTimeout(() => {
+          this.updateCopyrightTextSize()
+        }, 100)
+        return
+      }
+      
+      this.copyrightText.fontSize = fontSize
     }
   },
   mounted() {
@@ -463,6 +506,7 @@ export default {
     // 初始化时计算字体大小
     this.$nextTick(() => {
       this.updatePsLogoFontSize()
+      this.updateCopyrightTextSize()
     })
   },
   beforeDestroy() {
@@ -495,6 +539,7 @@ export default {
         // 当中心面板宽度变化时，确保重新计算字体大小
         this.$nextTick(() => {
           this.updatePsLogoFontSize()
+          this.updateCopyrightTextSize()
         })
       },
       immediate: true
@@ -685,6 +730,8 @@ export default {
             flex-direction: row;
             height: 85%; // 确保高度固定
             min-height: 0; // 允许子元素收缩
+            max-width: 100%; // 限制最大宽度
+            box-sizing: border-box; // 确保padding和border不影响尺寸
             
             // 左侧文字信息区
             .info-section {
@@ -692,10 +739,27 @@ export default {
               height: 100%;
               border: 1px dashed #666;
               display: flex;
-              align-items: center;
-              justify-content: center;
+              flex-direction: column;
+              align-items: flex-start;
+              justify-content: flex-start;
               color: #666;
               font-size: 14px;
+              padding: 10% 3% 15% 3%; // top right bottom left，与logo-area保持一致
+              box-sizing: border-box;
+              
+              .copyright-text {
+                font-family: Arial, sans-serif;
+                color: rgba(0, 30, 54, 0.5);
+                font-size: 12px;
+                line-height: 1.2;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                
+                .copyright-icon {
+                  font-size: inherit;
+                }
+              }
             }
             
             // 右侧图片展示区
