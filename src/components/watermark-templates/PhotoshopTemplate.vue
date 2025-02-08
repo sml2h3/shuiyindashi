@@ -37,7 +37,7 @@
                       </div>
                       <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
                       <div class="copyright-text" :style="copyrightTextStyle">
-                        水印精灵的作品
+                        {{ centerPanel.customText }}的作品
                       </div>
                       <div class="copyright-text" :style="copyrightTextStyle">
                         有关法律声明及更多详细信息，请转到关于Photoshop屏幕。
@@ -115,6 +115,62 @@
 
             <div class="section-divider">基础设置</div>
             
+            <el-form-item label="自定义文本">
+              <el-input 
+                v-model="centerPanel.customText" 
+                placeholder="请输入自定义文本"
+                clearable>
+              </el-input>
+            </el-form-item>
+
+            <el-form-item label="中心面板尺寸">
+              <div class="slider-with-value">
+                <el-slider 
+                  v-model="centerPanel.scale" 
+                  :min="40" 
+                  :max="95"
+                  :format-tooltip="value => value + '%'"
+                ></el-slider>
+                <span class="value-display">{{ centerPanel.scale }}%</span>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="水平位置">
+              <div class="slider-with-value">
+                <el-slider 
+                  v-model="centerPanel.x" 
+                  :min="0" 
+                  :max="100"
+                  :format-tooltip="value => value + '%'"
+                ></el-slider>
+                <span class="value-display">{{ centerPanel.x }}%</span>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="垂直位置">
+              <div class="slider-with-value">
+                <el-slider 
+                  v-model="centerPanel.y" 
+                  :min="0" 
+                  :max="100"
+                  :format-tooltip="value => value + '%'"
+                ></el-slider>
+                <span class="value-display">{{ centerPanel.y }}%</span>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="圆角">
+              <div class="slider-with-value">
+                <el-slider 
+                  v-model="centerPanel.borderRadius" 
+                  :min="0" 
+                  :max="60"
+                  :format-tooltip="value => value + 'px'"
+                ></el-slider>
+                <span class="value-display">{{ centerPanel.borderRadius }}px</span>
+              </div>
+            </el-form-item>
+
             <el-form-item label="模糊度">
               <div class="slider-with-value">
                 <el-slider 
@@ -193,7 +249,11 @@ export default {
         width: 0,
         height: 0,
         aspectRatio: 1.35,
-        scale: 0.8, // 80%的比例
+        scale: 80,
+        x: 50,
+        y: 50,
+        borderRadius: 30,
+        customText: '水印精灵'
       },
       psLogo: {
         fontWeight: 600,
@@ -228,16 +288,17 @@ export default {
       }
     },
     centerPanelStyle() {
+      const shadowOpacity = 0.1
       return {
         width: this.centerPanel.width + 'px',
         height: this.centerPanel.height + 'px',
-        borderRadius: Math.min(this.centerPanel.width, this.centerPanel.height) * 0.02 + 'px',
+        borderRadius: this.centerPanel.borderRadius + 'px',
         backgroundColor: '#FFFFFF',
         position: 'absolute',
-        top: '50%',
-        left: '50%',
+        top: this.centerPanel.y + '%',
+        left: this.centerPanel.x + '%',
         transform: 'translate(-50%, -50%)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, ' + shadowOpacity + ')',
       }
     },
     textLogoStyle() {
@@ -483,11 +544,11 @@ export default {
         return
       }
 
-      let width = containerWidth * this.centerPanel.scale
+      let width = containerWidth * this.centerPanel.scale / 100
       let height = width / this.centerPanel.aspectRatio
 
-      if (height > containerHeight * this.centerPanel.scale) {
-        height = containerHeight * this.centerPanel.scale
+      if (height > containerHeight * this.centerPanel.scale / 100) {
+        height = containerHeight * this.centerPanel.scale / 100
         width = height * this.centerPanel.aspectRatio
       }
 
@@ -573,11 +634,19 @@ export default {
         }
       }
     },
+    'centerPanel.scale': {
+      handler() {
+        this.$nextTick(() => {
+          this.updateCenterPanelSize()
+        })
+      }
+    },
     previewImage: {
       handler() {
         // 当预览图更新时，确保重新计算字体大小
         this.$nextTick(() => {
           this.updatePsLogoFontSize()
+          this.updateCenterPanelSize()
         })
       },
       immediate: true
@@ -730,7 +799,7 @@ export default {
                 font-family: Arial, sans-serif;
                 font-weight: 600;
                 color: #31A8FF;
-                border-radius: 8%;
+                border-radius: 16%;
 
                 .ps-text {
                   display: flex;
