@@ -35,6 +35,25 @@
                         <span class="copyright-icon">©</span>
                         1990-2025 Adobe, All rights reserved.
                       </div>
+                      <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
+                      <div class="copyright-text" :style="copyrightTextStyle">
+                        水印精灵的作品
+                      </div>
+                      <div class="copyright-text" :style="copyrightTextStyle">
+                        有关法律声明及更多详细信息，请转到关于Photoshop屏幕。
+                      </div>
+                      <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
+                      <div class="copyright-text" :style="copyrightTextStyle">
+                        正在读取全球资源...
+                      </div>
+                      <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
+                      <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
+                      <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
+                      <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
+                      <div class="copyright-text" :style="copyrightTextStyle">&nbsp;</div>
+                      <div class="copyright-text small-copyright-text" :style="smallCopyrightTextStyle">
+                        Russell Preston Brown, Jerry Harris, Mike Shaw,SteveSnyder, Yukie Takahashi, Sarah Kong, David Howe, JohnPeterson, Kellisa Sandoval, jonathan lo, Adam jerugim. TomAttix, Yuko kaaita,Meredith Pavne-Stotzner.winodBalakrishnan, Tai Luxon, Dave Dobish, Alan Erickson, MelissaMonroe,chad Rolfs, Steve Guihamet, Maria Yao, JohnFitzqerald,Pam Clark,Foster Brereton, Daniel Presedo,David Hackel, Kevin Hopps, Pete Falco, jesper Storm BachePablo Serrano, Barkin Aygun, Ankit Kumar Singh, RamanKumar Gupta, Hyun Joon Jung, Soumya lakshmi, RuchiSood, Aiay Bedi,Sangeeta Varma, Mohit Gupta, MortezaSafdarnejad, Xiaoyang Liu, Hannah Nicollet, Fulvio Cervone,Charles Rose,Stephen Nlelson
+                      </div>
                     </div>
                     
                     <!-- 右侧图片展示区 -->
@@ -176,6 +195,9 @@ export default {
       },
       copyrightText: {
         fontSize: 0
+      },
+      smallCopyrightText: {
+        fontSize: 0
       }
     }
   },
@@ -215,6 +237,11 @@ export default {
     copyrightTextStyle() {
       return {
         fontSize: `${this.copyrightText.fontSize}px`
+      }
+    },
+    smallCopyrightTextStyle() {
+      return {
+        fontSize: `${this.smallCopyrightText.fontSize}px`
       }
     }
   },
@@ -485,10 +512,11 @@ export default {
       }
       
       // 计算字体大小
-      const fontSize = Math.round(sectionWidth * 0.04)
+      const fontSize = Math.round(sectionWidth * 0.035)
+      const smallFontSize = Math.round(sectionWidth * 0.025)
       // 检查计算结果是否异常
-      if (fontSize === 0 || fontSize < 1) {
-        console.log('计算的字体大小异常:', fontSize, 'px, 等待重试...')
+      if (fontSize === 0 || fontSize < 1 || smallFontSize === 0 || smallFontSize < 1) {
+        console.log('计算的字体大小异常:', fontSize, 'px,', smallFontSize, 'px, 等待重试...')
         setTimeout(() => {
           this.updateCopyrightTextSize()
         }, 100)
@@ -496,6 +524,7 @@ export default {
       }
       
       this.copyrightText.fontSize = fontSize
+      this.smallCopyrightText.fontSize = smallFontSize
     }
   },
   mounted() {
@@ -656,7 +685,6 @@ export default {
           .logo-area {
             flex: 0 0 15%;
             width: 100%;
-            border: 1px dashed #666;
             display: flex;
             align-items: flex-end;
             justify-content: flex-start;
@@ -682,7 +710,7 @@ export default {
                 justify-content: center;
                 font-family: Arial, sans-serif;
                 font-weight: 600;
-                color: white;
+                color: #31A8FF;
                 border-radius: 8%;
 
                 .ps-text {
@@ -735,16 +763,15 @@ export default {
             
             // 左侧文字信息区
             .info-section {
-              flex: 0 0 40%;
+              flex: 0 0 32%;
               height: 100%;
-              border: 1px dashed #666;
               display: flex;
               flex-direction: column;
               align-items: flex-start;
               justify-content: flex-start;
               color: #666;
               font-size: 14px;
-              padding: 10% 3% 15% 3%; // top right bottom left，与logo-area保持一致
+              padding: 10% 3% 15% 3%;
               box-sizing: border-box;
               
               .copyright-text {
@@ -759,17 +786,21 @@ export default {
                 .copyright-icon {
                   font-size: inherit;
                 }
+
+                &.small-copyright-text {
+                  margin-left: -2%;
+                  color: rgba(0, 30, 54, 0.4);
+                }
               }
             }
             
             // 右侧图片展示区
             .preview-section {
-              flex: 0 0 60%;
+              flex: 0 0 68%;
               height: 100%;
-              border: 1px dashed #666;
               overflow: hidden;
-              min-height: 0; // 允许内容收缩
-              padding: calc(3% + 5px); // 基础padding 5px + 3%的动态padding
+              min-height: 0;
+              padding: calc(3% + 5px);
               box-sizing: border-box;
               
               @media (max-width: 1440px) {
