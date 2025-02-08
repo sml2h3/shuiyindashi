@@ -17,8 +17,13 @@
                 <div class="center-panel-content">
                   <!-- Logo区域 -->
                   <div class="logo-area">
-                    <div class="ps-logo" ref="psLogo">
-                      <span class="ps-text" :style="psTextStyle">Ps</span>
+                    <div class="logo-wrapper">
+                      <div class="ps-logo" ref="psLogo">
+                        <span class="ps-text" :style="psTextStyle">Ps</span>
+                      </div>
+                      <div class="text-logo" ref="textLogo">
+                        <span class="text" :style="textLogoStyle">Adobe Photoshop</span>
+                      </div>
                     </div>
                   </div>
                   
@@ -156,6 +161,9 @@ export default {
       psLogo: {
         fontWeight: 600,
         fontSize: 0
+      },
+      textLogo: {
+        fontSize: 0
       }
     }
   },
@@ -184,6 +192,12 @@ export default {
         left: '50%',
         transform: 'translate(-50%, -50%)',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+      }
+    },
+    textLogoStyle() {
+      return {
+        fontSize: `${this.textLogo.fontSize}px`,
+        fontWeight: 700
       }
     }
   },
@@ -336,20 +350,56 @@ export default {
     },
     updatePsLogoFontSize() {
       const psLogo = this.$refs.psLogo
-      if (psLogo) {
-        // 获取ps-logo的实际宽度
-        const width = psLogo.offsetWidth
-        if (width === 0) {
-          // 如果宽度为0，说明DOM可能还没有完全渲染，等待下一帧重试
+      const logoWrapper = psLogo?.parentElement
+      
+      if (psLogo && logoWrapper) {
+        // 获取logo-wrapper的实际高度
+        const wrapperHeight = logoWrapper.offsetHeight
+        
+        // 检查高度是否为0或异常值
+        if (wrapperHeight === 0 || wrapperHeight < 10) {
+          console.log('Logo Wrapper 高度异常:', wrapperHeight, 'px, 等待重试...')
           requestAnimationFrame(() => {
             this.updatePsLogoFontSize()
           })
           return
         }
-        // 设置字体大小为容器宽度的60%
-        this.psLogo.fontSize = Math.round(width * 0.6)
+
+        // 计算PS Logo字体大小
+        const width = psLogo.offsetWidth
+        if (width === 0 || width < 10) {
+          console.log('PS Logo 宽度异常:', width, 'px, 等待重试...')
+          requestAnimationFrame(() => {
+            this.updatePsLogoFontSize()
+          })
+          return
+        }
+
+        // 计算PS Logo字体大小
+        const fontSize = Math.round(width * 0.6)
+        if (fontSize < 8 || fontSize > 200) {
+          console.log('计算的字体大小异常:', fontSize, 'px, 等待重试...')
+          setTimeout(() => {
+            this.updatePsLogoFontSize()
+          }, 100)
+          return
+        }
+
+        // 设置PS Logo字体大小
+        this.psLogo.fontSize = fontSize
+        
+        // 计算text logo字体大小为logo-wrapper高度的50%
+        const textFontSize = Math.round(wrapperHeight * 0.5)
+        if (textFontSize < 6 || textFontSize > 120) {
+          console.log('文字Logo字体大小异常:', textFontSize, 'px, 等待重试...')
+          setTimeout(() => {
+            this.updatePsLogoFontSize()
+          }, 100)
+          return
+        }
+        this.textLogo.fontSize = textFontSize
+
       } else {
-        // 如果没有获取到元素，等待下一帧重试
         requestAnimationFrame(() => {
           this.updatePsLogoFontSize()
         })
@@ -362,12 +412,32 @@ export default {
       const containerWidth = bgImage.offsetWidth
       const containerHeight = bgImage.offsetHeight
 
+      // 检查容器尺寸是否合理
+      if (containerWidth === 0 || containerHeight === 0 || 
+          containerWidth < 100 || containerHeight < 100) {
+        console.log('容器尺寸异常:', containerWidth, 'x', containerHeight, ', 等待重试...')
+        setTimeout(() => {
+          this.updateCenterPanelSize()
+        }, 100)
+        return
+      }
+
       let width = containerWidth * this.centerPanel.scale
       let height = width / this.centerPanel.aspectRatio
 
       if (height > containerHeight * this.centerPanel.scale) {
         height = containerHeight * this.centerPanel.scale
         width = height * this.centerPanel.aspectRatio
+      }
+
+      // 检查计算结果是否合理
+      if (width < 100 || height < 100 || 
+          width > containerWidth || height > containerHeight) {
+        console.log('计算尺寸异常:', width, 'x', height, ', 等待重试...')
+        setTimeout(() => {
+          this.updateCenterPanelSize()
+        }, 100)
+        return
       }
 
       this.centerPanel.width = width
@@ -543,33 +613,60 @@ export default {
             box-sizing: border-box;
             position: relative;
 
-            .ps-logo {
+            .logo-wrapper {
               position: absolute;
               left: 3%;
               bottom: 3%;
               height: calc(100% * 0.5);
-              aspect-ratio: 1;
-              background-color: #001E36;
               display: flex;
               align-items: center;
-              justify-content: center;
-              font-family: Arial, sans-serif;
-              font-weight: 600;
-              color: white;
-              border-radius: 8%;
+              gap: 8px;
 
-              .ps-text {
+              .ps-logo {
+                height: 100%;
+                aspect-ratio: 1;
+                background-color: #001E36;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 100%;
+                font-family: Arial, sans-serif;
+                font-weight: 600;
+                color: white;
+                border-radius: 8%;
+
+                .ps-text {
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 100%;
+                  height: 100%;
+                  font-size: calc(100% * 0.6);
+                  line-height: 1;
+                  letter-spacing: -0.05em;
+                  padding: 15%;
+                  box-sizing: border-box;
+                  user-select: none;
+                }
+              }
+
+              .text-logo {
                 height: 100%;
-                font-size: calc(100% * 0.6);
-                line-height: 1;
-                letter-spacing: -0.05em;
-                padding: 15%;
-                box-sizing: border-box;
-                user-select: none;
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+
+                .text {
+                  color: #001E36;
+                  font-family: Arial, sans-serif;
+                  line-height: 1;
+                  letter-spacing: -0.02em;
+                  white-space: nowrap;
+                  user-select: none;
+                  height: 100%;
+                  display: flex;
+                  align-items: center;
+                }
               }
             }
           }
